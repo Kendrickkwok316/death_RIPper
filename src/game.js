@@ -1,6 +1,6 @@
-import { init, initPointer, onPointer, getPointer, Button, setImagePath, imageAssets, GameObjectClass, collides, Sprite, Text, SpriteClass, GameLoop, load, SpriteSheet } from "../node_modules/kontra/kontra.mjs"
+import { init, initPointer, onPointer, getPointer, Button, setImagePath, imageAssets, collides, Text, SpriteClass, GameLoop, load, SpriteSheet } from "../node_modules/kontra/kontra.mjs"
 import CPlayer from "./player-small.js";
-import { BGM, BREAK, HIT } from "../assets/compressed.js";
+import sounds from "../assets/songs.js";
 
 function randInt(max) {
     return Math.floor(Math.random() * max);
@@ -19,113 +19,61 @@ initPointer();
 setImagePath('assets/img/');
 let restart = false;
 let scene = 0;
-let bgmPlayer = new CPlayer();
-let breakPlayer = new CPlayer();
-let hitPlayer = new CPlayer();
-bgmPlayer.init(BGM);
-breakPlayer.init(BREAK);
-hitPlayer.init(HIT);
-let bgmWave;
-let breakWave;
-let hitWave;
-let bgmAudio = document.createElement("audio");
-let breakAudio = document.createElement("audio");
-let hitAudio = document.createElement("audio");
-let bgmReady = false;
-let breakReady = false;
-let hitReady = false;
-let sHistory = parseInt(localStorage.getItem('dsShieldHistory')) ? parseInt(localStorage.getItem('dsShieldHistory')) : 0;
-let highScore = parseInt(localStorage.getItem('dsHighScore')) ? parseInt(localStorage.getItem('dsHighScore')) : 0;
-let preBGM = setInterval(function () {
-    if (bgmReady) {
-        console.log('BGM ready');
-        bgmWave = bgmPlayer.createWave();
-        bgmAudio.src = URL.createObjectURL(new Blob([bgmWave], { type: "audio/wav" }));
-        bgmAudio.loop = true;
-        clearInterval(preBGM);
-    }
-    bgmReady = bgmPlayer.generate() >= 1;
-})
-let preBREAK = setInterval(function () {
-    if (breakReady) {
-        breakWave = breakPlayer.createWave();
-        breakAudio.src = URL.createObjectURL(new Blob([breakWave], { type: "audio/wav" }));
-        clearInterval(preBREAK);
-    }
-    breakReady = breakPlayer.generate() >= 1;
-})
-let preHIT = setInterval(function () {
-    if (hitReady) {
-        hitWave = hitPlayer.createWave();
-        hitAudio.src = URL.createObjectURL(new Blob([hitWave], { type: "audio/wav" }));
-        clearInterval(preHIT);
-    }
-    hitReady = hitPlayer.generate() >= 1;
-})
+let mPlayers = [];
+let mWave = [0, 0, 0];
+let mAudio = [];
+let mReady = [false, false, false];
+let mInt = [];
+for (let i = 0; i < 3; i++) {
+    let Player = new CPlayer();
+    mPlayers.push(Player);
+    Player.init(sounds[i]);
+    let Audio = document.createElement("audio");
+    mAudio.push(Audio);
+    let prepare = setInterval(function () {
+        if (mReady[i]) {
+            mWave[i] = mPlayers[i].createWave();
+            mAudio[i].src = URL.createObjectURL(new Blob([mWave[i]], { type: "audio/wav" }));
+            if (i == 0) {
+                mAudio[i].loop = true;
+            }
+            clearInterval(mInt[i]);
+        }
+        mReady[i] = mPlayers[i].generate() >= 1;
+    });
+    mInt.push(prepare);
+}
+let sHistory = parseInt(localStorage.getItem('dsSh')) ? parseInt(localStorage.getItem('dsSh')) : 0;
+let highScore = parseInt(localStorage.getItem('dsHS')) ? parseInt(localStorage.getItem('dsHS')) : 0;
 let topic = Text({
     text: 'Death RIPper',
-    font: '36px Aerial',
-    color: 'white',
-    x: 320,
-    y: 30,
-    anchor: { x: 0.5, y: 0.5 },
-    textAlign: 'center'
-});
-
-let tutorial = Text({
-    text: 'The job of death is boring yet vital. If they did not banish the decreased from earth,\n they will turn into spectres and harm the world. ' +
-    'Your time is limited.\nSend those poor souls to hell while avoiding spectres.\n' + 
-    'The peace of the world is upon you.\n\n\n\n' + 
-    'When the human is dying, a counter will appear over them. \nWhen the counter turns to 0, they will turn into spectres.\n\n'+
-    'Approach them before the counter runs out. You cannot lay hands on the livings.\n\n'+
-    'Click on the Map to move. You will stop once bump into anything except the dyings.\n\n'+
-    'If you are hit by spectres, a shield will be broken and\nyou will be sent back to hell if you are hit by spectres without any shield.\n\n'+
-    'You will also be sent back to hell if your time on earth runs out.\nCollect more souls from the dyings to extend your time.',
-    font: '15px Aerial',
+    font: '52px Aerial',
     color: 'white',
     x: 320,
     y: 100,
-    anchor: { x: 0.5, y: 0 },
+    anchor: { x: 0.5, y: 0.5 },
     textAlign: 'center'
 });
 
 let startButton = Button({
-    // sprite properties
     x: 320,
     y: 500,
     anchor: { x: 0.5, y: 0.5 },
-
-    // text properties
     text: {
         text: 'Start Game',
         color: 'white',
         font: '24px sans-serif',
         anchor: { x: 0.5, y: 0.5 }
     },
-
-    // button properties
     padX: 20,
     padY: 10,
-
     render() {
-        // focused by keyboard
-        if (this.focused) {
-            this.context.setLineDash([8, 10]);
-            this.context.lineWidth = 3;
-            this.context.strokeStyle = 'red';
-            this.context.strokeRect(0, 0, this.width, this.height);
-        }
-
-        // pressed by mouse, touch, or enter/space on keyboard
         if (this.pressed) {
-            this.textNode.color = 'yellow';
-            bgmAudio.play();
+            mAudio[0].play();
             genMap();
-            console.log('SAS');
             scene = 1;
             this.pressed = false;
         }
-        // hovered by mouse
         else if (this.hovered) {
             this.textNode.color = 'red';
         }
@@ -134,8 +82,6 @@ let startButton = Button({
         }
     }
 });
-
-//ghost, spectre
 
 let endGameTxt = Button({
     x: 300,
@@ -152,7 +98,6 @@ let endGameTxt = Button({
 });
 
 let score = Text({
-    text: '',
     font: '18px Aerial',
     color: 'white',
     x: 300,
@@ -169,57 +114,54 @@ let titleBut = Button({
     padY: 10,
     onDown() {
         scene = 0;
-        bgmAudio.pause();
-        bgmAudio.currentTime = 0;
-        console.log('RE');
+        mAudio[0].pause();
+        mAudio[0].currentTime = 0;
     }
 });
 
-load('replayBut.png').then(() => {
-    titleBut.image = imageAssets['replayBut'];
+load('re.png').then(() => {
+    titleBut.image = imageAssets['re'];
 });
 
-let timeBar = Sprite({
+let timeBar = Button({
     x: 5,
     y: 5,
-    anchor: { x: 0, y: 0 },
     height: 20,
     width: 300,
     color: 'Aqua'
 });
 let timeCounter = 0;
 let shields = [];
-load('shield.png').then(() => {
+load('sh.png').then(() => {
     for (let i = 0; i < 6; i++) {
-        let shield = Sprite({
+        let shield = Button({
             x: 5 + i * 20,
             y: 30,
-            anchor: { x: 0, y: 0 },
             height: 15,
             width: 15,
-            image: imageAssets['shield']
+            image: imageAssets['sh']
         });
         shields.push(shield);
     }
 });
 
-let backGround = Sprite({
+let backGround = Button({
     x: 0,
     y: 50,
-    anchor: { x: 0, y: 0 },
     height: 480,
-    width: 640
+    width: 640,
+    color: '#008000'
 });
+/*
 load('ground.png').then(() => {
     backGround.image = imageAssets['ground'];
 });
-load('tree.png').then(() => { });
+*/
+load('tr.png').then(() => { });
 let playerSprite;
-let playerImage = new Image();
-playerImage.src = 'assets/img/death.png';
-playerImage.onload = function () {
+load('de.png').then(() => {
     playerSprite = SpriteSheet({
-        image: playerImage,
+        image: imageAssets['de'],
         frameWidth: 20,
         frameHeight: 20,
         animations: {
@@ -238,14 +180,12 @@ playerImage.onload = function () {
         shield: Math.floor(sHistory / 20) + 1,
         point: 0,
         animations: playerSprite.animations
-    })
-};
+    });
+});
 let humanSprite;
-let humanImage = new Image();
-humanImage.src = 'assets/img/human.png';
-humanImage.onload = function () {
+load('hu.png').then(() => {
     humanSprite = SpriteSheet({
-        image: humanImage,
+        image: imageAssets['hu'],
         frameWidth: 20,
         frameHeight: 20,
         animations: {
@@ -255,10 +195,10 @@ humanImage.onload = function () {
             }
         }
     });
-};
-class bound extends GameObjectClass {
+});
+
+class bound extends SpriteClass {
     constructor(properties) {
-        properties.anchor = { x: 0, y: 0 };
         properties.color = '#CD853F';
         super(properties);
     }
@@ -279,7 +219,7 @@ bPara.forEach(paras => {
     }));
 });
 
-class exit extends GameObjectClass {
+class exit extends SpriteClass {
     constructor(properties) {
         super(properties);
     }
@@ -292,7 +232,6 @@ ePara.forEach(paras => {
         y: paras[1],
         height: paras[2],
         width: paras[3],
-        anchor: { x: 0, y: 0 },
         sx: paras[4],
         sy: paras[5]
     }));
@@ -311,21 +250,21 @@ class Player extends SpriteClass {
 let sprite;
 
 let navi;
-load('pointer.png').then(() => {
+load('po.png').then(() => {
     navi = new Player({
         x: 400,
         y: 320,
         width: 10,
         height: 10,
         anchor: { x: 0.5, y: 0.5 },
-        image: imageAssets['pointer']
+        image: imageAssets['po']
     });
 });
 
-class Wall extends GameObjectClass {
+class Wall extends SpriteClass {
     constructor(properties) {
         super(properties);
-        let wallType = randInt(3);
+        let wallType = randInt(2);
         switch (wallType) {
             case 0:
                 let topLeft = { x: - properties.width / 2, y: - properties.height / 2 };
@@ -352,27 +291,24 @@ class Wall extends GameObjectClass {
                         pPt2 = topLeft;
                         break
                     default:
-                        console.log('Some error occurred');
                 }
                 for (let i = 0; i < 5; i++) {
-                    let wallChild = Sprite({
+                    let wallChild = Button({
                         x: pPt1.x,
                         y: pPt1.y + i * 25,
                         width: 25,
                         height: 25,
-                        anchor: { x: 0, y: 0 },
-                        image: imageAssets['tree']
+                        image: imageAssets['tr']
                     });
                     this.addChild(wallChild);
                 }
                 for (let i = 0; i < 5; i++) {
-                    let wallChild = Sprite({
+                    let wallChild = Button({
                         x: pPt2.x + i * 25,
                         y: pPt2.y,
                         width: 25,
                         height: 25,
-                        anchor: { x: 0, y: 0 },
-                        image: imageAssets['tree']
+                        image: imageAssets['tr']
                     });
                     this.addChild(wallChild);
                 }
@@ -394,31 +330,28 @@ class Wall extends GameObjectClass {
                         this.lines = [{ pt1: topL, pt2: bottomL }, { pt1: topL, pt2: topR }];
                         break
                     default:
-                        console.log('Some error occurred');
                 }
                 break;
             case 1:
                 let left = { x: - properties.width / 2, y: - 25 / 2 };
                 let top = { x: - 25 / 2, y: - properties.width / 2 };
                 for (let i = 0; i < 5; i++) {
-                    let wallChild = Sprite({
+                    let wallChild = Button({
                         x: left.x + i * 25,
                         y: left.y,
                         width: 25,
                         height: 25,
-                        anchor: { x: 0, y: 0 },
-                        image: imageAssets['tree']
+                        image: imageAssets['tr']
                     });
                     this.addChild(wallChild);
                 }
                 for (let i = 0; i < 5; i++) {
-                    let wallChild = Sprite({
+                    let wallChild = Button({
                         x: top.x,
                         y: top.y + i * 25,
                         width: 25,
                         height: 25,
-                        anchor: { x: 0, y: 0 },
-                        image: imageAssets['tree']
+                        image: imageAssets['tr']
                     });
                     this.addChild(wallChild);
                 }
@@ -434,13 +367,12 @@ class Wall extends GameObjectClass {
                 switch (lOri) {
                     case 0:
                         for (let i = 0; i < 5; i++) {
-                            let wallChild = Sprite({
+                            let wallChild = Button({
                                 x: -properties.width / 2 + i * 25,
                                 y: (slot - 2) * 25 - 25 / 2,
                                 width: 25,
                                 height: 25,
-                                anchor: { x: 0, y: 0 },
-                                image: imageAssets['tree']
+                                image: imageAssets['tr']
                             });
                             this.addChild(wallChild);
                         }
@@ -450,13 +382,12 @@ class Wall extends GameObjectClass {
                         break;
                     case 1:
                         for (let i = 0; i < 5; i++) {
-                            let wallChild = Sprite({
+                            let wallChild = Button({
                                 x: (slot - 2) * 25 - 25 / 2,
                                 y: -properties.height / 2 + i * 25,
                                 width: 25,
                                 height: 25,
-                                anchor: { x: 0, y: 0 },
-                                image: imageAssets['tree']
+                                image: imageAssets['tr']
                             });
                             this.addChild(wallChild);
                         }
@@ -465,11 +396,9 @@ class Wall extends GameObjectClass {
                         this.lines = [{ pt1: lPt1, pt2: lPt2 }];
                         break;
                     default:
-                        console.log('Some line error occurred');
                 }
                 break;
             default:
-                console.log('Some type error occurred');
         }
     }
 
@@ -507,7 +436,6 @@ class Human extends SpriteClass {
         this.repelX = 0;
         this.repelY = 0;
         this.lCounter = Text({
-            text: '',
             font: '18px Aerial',
             color: 'white',
             x: 0,
@@ -533,7 +461,6 @@ class Human extends SpriteClass {
                 if (collides(this, wallGroup)) {
                     for (let wall of wallGroup.children) {
                         if (collides(this, wall)) {
-                            //console.log('Hit x');
                             this.x += moveX;
                             xWallCol = true;
                             break;
@@ -549,7 +476,6 @@ class Human extends SpriteClass {
                 if (collides(this, wallGroup)) {
                     for (let wall of wallGroup.children) {
                         if (collides(this, wall)) {
-                            //console.log('Hit y');
                             this.y += moveY;
                             yWallCol = true;
                             break;
@@ -626,11 +552,9 @@ class Human extends SpriteClass {
                 }
             }
             if (!xWallCol) {
-                //console.log('moveX', moveX);
                 this.x -= moveX;
             }
             if (!yWallCol) {
-                //console.log('moveY', moveY);
                 this.y -= moveY;
             }
         }
@@ -639,21 +563,14 @@ class Human extends SpriteClass {
     stateChange() {
         if (Math.floor(this.lifeCount / 60) < 11) {
             if (Math.floor(this.lifeCount / 60) < 1) {
-                //this.color = 'orange';
                 if (this.state == 1) {
                     this.update();
                 }
                 this.state = 0;
             } else {
-                if (Math.floor(this.lifeCount / 60) < 6) {
-                    if (this.state == 2) {
-                        this.update();
-                        this.state = 1;
-                    }
-                    //this.color = 'purple';
-                } else {
-                    this.state = 2;
-                    //this.color = 'brown';
+                if (this.state == 3) {
+                    this.update();
+                    this.state = 1;
                 }
             }
             return true;
@@ -680,7 +597,7 @@ class Human extends SpriteClass {
             }
             if (collides(this, sprite)) {
                 if (sprite.shield) {
-                    breakAudio.play();
+                    mAudio[1].play();
                     this.repelX = this.x - moveX * 40;
                     this.repelY = this.y - moveY * 40;
                     sprite.shield -= 1;
@@ -689,7 +606,6 @@ class Human extends SpriteClass {
                     }
                 } else {
                     restart = true;
-                    console.log('Loser');
                 }
             }
         }
@@ -745,7 +661,6 @@ function genMap() {
             y: pos.y + 50,
             width: 20,
             height: 20,
-            //color: 'blue',
             anchor: { x: 0.5, y: 0.5 },
             indx: genCount,
             animations: humanSprite.animations
@@ -784,8 +699,6 @@ function genMap() {
         if (gen) {
             preys.push(prey);
             genCount += 1;
-            console.log(pAn.x, pAn.y);
-            console.log(prey.x, prey.y);
         }
     }
 }
@@ -855,7 +768,7 @@ let loop = GameLoop({
                 if (collides(sprite, preys[i])) {
                     if (preys[i].stateChange()) {
                         if (preys[i].state) {
-                            hitAudio.play();
+                            mAudio[2].play();
                             sprite.point += 1;
                             if (sprite.point % 5 == 0) {
                                 timeBar.width += 200;
@@ -876,24 +789,19 @@ let loop = GameLoop({
                 sprite.y = 320;
                 if (sHistory < 100 || !sHistory) {
                     if ((sHistory + sprite.point) < 100) {
-                        if (Math.floor((sHistory + sprite.point) / 20) - Math.floor((sHistory) / 20)) {
-                            console.log('New shield');
-                        }
                         sHistory = sHistory + sprite.point;
                     } else {
-                        console.log('New shield');
                         sHistory = 100;
                     }
-                    localStorage.setItem("dsShieldHistory", sHistory);
+                    localStorage.setItem("dsSh", sHistory);
                 }
                 sprite.shield = Math.floor(sHistory / 20) + 1;
                 sprite.opacity = 1;
                 score.text = "Score: " + String(sprite.point);
                 if (sprite.point > highScore || !highScore) {
-                    console.log("New High Score");
                     score.text += "   New High Score!"
                     highScore = sprite.point;
-                    localStorage.setItem("dsHighScore", sprite.point);
+                    localStorage.setItem("dsHS", sprite.point);
                 }
                 sprite.point = 0;
                 timeBar.width = 300;
@@ -903,7 +811,6 @@ let loop = GameLoop({
             }
             for (let exit of exits) {
                 if (collides(sprite, exit)) {
-                    console.log('Exited');
                     sprite.x = exit.sx;
                     sprite.y = exit.sy;
                     goFlag = false;
@@ -938,7 +845,6 @@ let loop = GameLoop({
         switch (scene) {
             case 0:
                 topic.render();
-                tutorial.render();
                 startButton.render();
                 break
             case 1:
@@ -983,7 +889,6 @@ let loop = GameLoop({
                 score.render();
                 break
             default:
-                console.log('Error');
         }
     }
 })
