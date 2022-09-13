@@ -134,7 +134,7 @@ You stand no chance against them, so you better run.
 
 ### Shield
 
-If you are attacked by spectres, you will lose a shield. If you are hit without any shield, you will be sent back to hell.
+If you are attacked by spectres, you will lose a shield. If you are hit without any shield, you will be sent back to hell. Earn extra shields by sending more trespassers back to hell.
 
 ![Shield Screen Shot][shield-screenshot]
 
